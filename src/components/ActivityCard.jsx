@@ -3,15 +3,6 @@ import { Card } from "@/components/ui/card";
 import { Users } from "lucide-react";
 import { Link } from "react-router-dom";
 
-interface ActivityCardProps {
-  id: string;
-  title: string;
-  imageUrl?: string;
-  participantCount: number;
-  maxParticipants: number;
-  badge?: "hosted" | "waiting" | "accepted";
-}
-
 export const ActivityCard = ({
   id,
   title,
@@ -19,7 +10,7 @@ export const ActivityCard = ({
   participantCount,
   maxParticipants,
   badge,
-}: ActivityCardProps) => {
+}) => {
   const getBadgeColor = () => {
     switch (badge) {
       case "hosted":

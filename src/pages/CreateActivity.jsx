@@ -24,7 +24,7 @@ export default function CreateActivity() {
   const navigate = useNavigate();
   const { toast } = useToast();
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
 
@@ -49,7 +49,7 @@ export default function CreateActivity() {
       });
 
       navigate("/");
-    } catch (error: any) {
+    } catch (error) {
       toast({
         variant: "destructive",
         title: "Error",

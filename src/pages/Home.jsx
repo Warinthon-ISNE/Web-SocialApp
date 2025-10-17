@@ -6,16 +6,8 @@ import { Input } from "@/components/ui/input";
 import { Search } from "lucide-react";
 import { AuthGuard } from "@/components/AuthGuard";
 
-interface Activity {
-  id: string;
-  title: string;
-  image_url: string | null;
-  host_id: string;
-  max_participants: number;
-}
-
 export default function Home() {
-  const [activities, setActivities] = useState<Activity[]>([]);
+  const [activities, setActivities] = useState([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [loading, setLoading] = useState(true);
 
