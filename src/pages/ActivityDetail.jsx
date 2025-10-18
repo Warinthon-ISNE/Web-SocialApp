@@ -9,15 +9,19 @@ import {
   where, 
   getDocs, 
   addDoc, 
-  updateDoc 
+  updateDoc,
+  deleteDoc 
 } from "firebase/firestore";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { AuthGuard } from "@/components/AuthGuard";
-import { ArrowLeft, Users, Edit, Trash2 } from "lucide-react";
+import { ArrowLeft, Users, Edit, Trash2, Save, X } from "lucide-react";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -39,6 +43,13 @@ export default function ActivityDetail() {
   const [userRequest, setUserRequest] = useState(null);
   const [isHost, setIsHost] = useState(false);
   const [loading, setLoading] = useState(true);
+  
+  // Edit mode states
+  const [isEditing, setIsEditing] = useState(false);
+  const [editTitle, setEditTitle] = useState("");
+  const [editDescription, setEditDescription] = useState("");
+  const [editImageUrl, setEditImageUrl] = useState("");
+  const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     fetchActivity();
@@ -58,6 +69,11 @@ export default function ActivityDetail() {
       const activityData = { id: activityDoc.id, ...activityDoc.data() };
       setActivity(activityData);
       setIsHost(activityData.hostId === user.uid);
+      
+      // Set edit form values
+      setEditTitle(activityData.title || "");
+      setEditDescription(activityData.description || "");
+      setEditImageUrl(activityData.imageUrl || "");
 
       if (activityData.hostId === user.uid) {
         // Fetch requests for this activity
@@ -155,15 +171,82 @@ export default function ActivityDetail() {
     }
   };
 
-  const handleEndActivity = async () => {
+  const handleEditToggle = () => {
+    if (isEditing) {
+      // Reset form if canceling
+      setEditTitle(activity.title || "");
+      setEditDescription(activity.description || "");
+      setEditImageUrl(activity.imageUrl || "");
+    }
+    setIsEditing(!isEditing);
+  };
+
+  const handleSaveEdit = async () => {
+    setSaving(true);
     try {
+      if (!editTitle.trim()) {
+        toast({
+          variant: "destructive",
+          title: "Error",
+          description: "Title cannot be empty.",
+        });
+        setSaving(false);
+        return;
+      }
+
       await updateDoc(doc(db, "activities", id), {
-        endedAt: new Date().toISOString(),
+        title: editTitle.trim(),
+        description: editDescription.trim() || null,
+        imageUrl: editImageUrl.trim() || null,
+        updatedAt: new Date().toISOString(),
+      });
+
+      // Update local state
+      setActivity({
+        ...activity,
+        title: editTitle.trim(),
+        description: editDescription.trim() || null,
+        imageUrl: editImageUrl.trim() || null,
       });
 
       toast({
-        title: "Activity ended",
-        description: "This activity has been marked as ended.",
+        title: "Activity updated!",
+        description: "Your changes have been saved.",
+      });
+
+      setIsEditing(false);
+    } catch (error) {
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "Failed to update activity.",
+      });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleEndActivity = async () => {
+    try {
+      // Delete all activity requests associated with this activity
+      const requestsQuery = query(
+        collection(db, "activityRequests"),
+        where("activityId", "==", id)
+      );
+      const requestsSnapshot = await getDocs(requestsQuery);
+      
+      // Delete all requests
+      const deletePromises = requestsSnapshot.docs.map(doc => 
+        deleteDoc(doc.ref)
+      );
+      await Promise.all(deletePromises);
+
+      // Delete the activity itself
+      await deleteDoc(doc(db, "activities", id));
+
+      toast({
+        title: "Activity deleted",
+        description: "This activity has been permanently deleted.",
       });
 
       navigate("/");
@@ -171,7 +254,7 @@ export default function ActivityDetail() {
       toast({
         variant: "destructive",
         title: "Error",
-        description: "Failed to end activity.",
+        description: "Failed to delete activity.",
       });
     }
   };
@@ -211,139 +294,222 @@ export default function ActivityDetail() {
           </div>
 
           <div className="p-4 space-y-4">
-            {activity.imageUrl && (
-              <div className="aspect-video bg-muted rounded-lg overflow-hidden">
-                <img
-                  src={activity.imageUrl}
-                  alt={activity.title}
-                  className="w-full h-full object-cover"
-                />
-              </div>
-            )}
-
-            <div className="space-y-2">
-              <h1 className="text-2xl font-bold text-foreground">{activity.title}</h1>
-              <div className="flex items-center gap-2 text-muted-foreground">
-                <Users className="h-4 w-4" />
-                <span>
-                  Max {activity.maxParticipants} participants
-                </span>
-              </div>
-            </div>
-
-            {activity.description && (
-              <>
-                <Separator />
-                <p className="text-foreground">{activity.description}</p>
-              </>
-            )}
-
-            {isHost ? (
-              <>
-                <Separator />
-                <div className="flex gap-2">
-                  <Button variant="outline" className="flex-1">
-                    <Edit className="h-4 w-4 mr-2" />
-                    Edit
-                  </Button>
-                  <AlertDialog>
-                    <AlertDialogTrigger asChild>
-                      <Button variant="destructive" className="flex-1">
-                        <Trash2 className="h-4 w-4 mr-2" />
-                        End Activity
-                      </Button>
-                    </AlertDialogTrigger>
-                    <AlertDialogContent>
-                      <AlertDialogHeader>
-                        <AlertDialogTitle>End this activity?</AlertDialogTitle>
-                        <AlertDialogDescription>
-                          This will permanently end the activity and remove it from the app.
-                        </AlertDialogDescription>
-                      </AlertDialogHeader>
-                      <AlertDialogFooter>
-                        <AlertDialogCancel>Cancel</AlertDialogCancel>
-                        <AlertDialogAction onClick={handleEndActivity}>
-                          End Activity
-                        </AlertDialogAction>
-                      </AlertDialogFooter>
-                    </AlertDialogContent>
-                  </AlertDialog>
+            {isEditing ? (
+              // Edit Mode
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="edit-image">Image URL</Label>
+                  <Input
+                    id="edit-image"
+                    type="url"
+                    placeholder="https://example.com/image.jpg"
+                    value={editImageUrl}
+                    onChange={(e) => setEditImageUrl(e.target.value)}
+                  />
+                  {editImageUrl && (
+                    <div className="aspect-video bg-muted rounded-lg overflow-hidden">
+                      <img
+                        src={editImageUrl}
+                        alt="Preview"
+                        className="w-full h-full object-cover"
+                        onError={(e) => {
+                          e.currentTarget.style.display = "none";
+                        }}
+                      />
+                    </div>
+                  )}
                 </div>
 
-                {requests.length > 0 && (
+                <div className="space-y-2">
+                  <Label htmlFor="edit-title">Title</Label>
+                  <Input
+                    id="edit-title"
+                    type="text"
+                    placeholder="Activity title"
+                    value={editTitle}
+                    onChange={(e) => setEditTitle(e.target.value)}
+                    maxLength={100}
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="edit-description">Description</Label>
+                  <Textarea
+                    id="edit-description"
+                    placeholder="Activity description..."
+                    value={editDescription}
+                    onChange={(e) => setEditDescription(e.target.value)}
+                    rows={4}
+                    maxLength={500}
+                  />
+                </div>
+
+                <div className="flex gap-2">
+                  <Button 
+                    onClick={handleSaveEdit} 
+                    disabled={saving}
+                    className="flex-1"
+                  >
+                    <Save className="h-4 w-4 mr-2" />
+                    {saving ? "Saving..." : "Save Changes"}
+                  </Button>
+                  <Button 
+                    onClick={handleEditToggle} 
+                    variant="outline"
+                    disabled={saving}
+                    className="flex-1"
+                  >
+                    <X className="h-4 w-4 mr-2" />
+                    Cancel
+                  </Button>
+                </div>
+              </div>
+            ) : (
+              // View Mode
+              <>
+                {activity.imageUrl && (
+                  <div className="aspect-video bg-muted rounded-lg overflow-hidden">
+                    <img
+                      src={activity.imageUrl}
+                      alt={activity.title}
+                      className="w-full h-full object-cover"
+                    />
+                  </div>
+                )}
+
+                <div className="space-y-2">
+                  <h1 className="text-2xl font-bold text-foreground">{activity.title}</h1>
+                  <div className="flex items-center gap-2 text-muted-foreground">
+                    <Users className="h-4 w-4" />
+                    <span>
+                      Max {activity.maxParticipants} participants
+                    </span>
+                  </div>
+                </div>
+
+                {activity.description && (
                   <>
                     <Separator />
-                    <div className="space-y-4">
-                      <h2 className="text-lg font-semibold text-foreground">
-                        Join Requests ({requests.length})
-                      </h2>
-                      {requests.map((request) => (
-                        <Card key={request.id} className="p-4">
-                          <div className="flex items-center justify-between">
-                            <div>
-                              <p className="font-medium text-foreground">
-                                {request.profiles?.username}
-                              </p>
-                              <Badge
-                                variant={
-                                  request.status === "accepted"
-                                    ? "default"
-                                    : request.status === "rejected"
-                                    ? "destructive"
-                                    : "secondary"
-                                }
-                              >
-                                {request.status}
-                              </Badge>
-                            </div>
-                            {request.status === "pending" && (
-                              <div className="flex gap-2">
-                                <Button
-                                  size="sm"
-                                  onClick={() => handleRequestAction(request.id, "accepted")}
-                                >
-                                  Accept
-                                </Button>
-                                <Button
-                                  size="sm"
-                                  variant="outline"
-                                  onClick={() => handleRequestAction(request.id, "rejected")}
-                                >
-                                  Decline
-                                </Button>
-                              </div>
-                            )}
-                          </div>
-                        </Card>
-                      ))}
-                    </div>
+                    <p className="text-foreground">{activity.description}</p>
                   </>
                 )}
               </>
-            ) : (
+            )}
+
+            {!isEditing && (
               <>
-                <Separator />
-                {userRequest ? (
-                  <Card className="p-4">
-                    <div className="text-center space-y-2">
-                      <p className="text-foreground">Your request status:</p>
-                      <Badge
-                        variant={
-                          userRequest.status === "accepted"
-                            ? "default"
-                            : userRequest.status === "rejected"
-                            ? "destructive"
-                            : "secondary"
-                        }
+                {isHost ? (
+                  <>
+                    <Separator />
+                    <div className="flex gap-2">
+                      <Button 
+                        variant="outline" 
+                        className="flex-1"
+                        onClick={handleEditToggle}
                       >
-                        {userRequest.status}
-                      </Badge>
+                        <Edit className="h-4 w-4 mr-2" />
+                        Edit
+                      </Button>
+                      <AlertDialog>
+                        <AlertDialogTrigger asChild>
+                          <Button variant="destructive" className="flex-1">
+                            <Trash2 className="h-4 w-4 mr-2" />
+                            Delete Activity
+                          </Button>
+                        </AlertDialogTrigger>
+                        <AlertDialogContent>
+                          <AlertDialogHeader>
+                            <AlertDialogTitle>Delete this activity?</AlertDialogTitle>
+                            <AlertDialogDescription>
+                              This action cannot be undone. This will permanently delete the activity and all associated requests.
+                            </AlertDialogDescription>
+                          </AlertDialogHeader>
+                          <AlertDialogFooter>
+                            <AlertDialogCancel>Cancel</AlertDialogCancel>
+                            <AlertDialogAction onClick={handleEndActivity} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+                              Delete Activity
+                            </AlertDialogAction>
+                          </AlertDialogFooter>
+                        </AlertDialogContent>
+                      </AlertDialog>
                     </div>
-                  </Card>
+
+                    {requests.length > 0 && (
+                      <>
+                        <Separator />
+                        <div className="space-y-4">
+                          <h2 className="text-lg font-semibold text-foreground">
+                            Join Requests ({requests.length})
+                          </h2>
+                          {requests.map((request) => (
+                            <Card key={request.id} className="p-4">
+                              <div className="flex items-center justify-between">
+                                <div>
+                                  <p className="font-medium text-foreground">
+                                    {request.profiles?.username}
+                                  </p>
+                                  <Badge
+                                    variant={
+                                      request.status === "accepted"
+                                        ? "default"
+                                        : request.status === "rejected"
+                                        ? "destructive"
+                                        : "secondary"
+                                    }
+                                  >
+                                    {request.status}
+                                  </Badge>
+                                </div>
+                                {request.status === "pending" && (
+                                  <div className="flex gap-2">
+                                    <Button
+                                      size="sm"
+                                      onClick={() => handleRequestAction(request.id, "accepted")}
+                                    >
+                                      Accept
+                                    </Button>
+                                    <Button
+                                      size="sm"
+                                      variant="outline"
+                                      onClick={() => handleRequestAction(request.id, "rejected")}
+                                    >
+                                      Decline
+                                    </Button>
+                                  </div>
+                                )}
+                              </div>
+                            </Card>
+                          ))}
+                        </div>
+                      </>
+                    )}
+                  </>
                 ) : (
-                  <Button onClick={handleJoinRequest} className="w-full">
-                    Request to Join
-                  </Button>
+                  <>
+                    <Separator />
+                    {userRequest ? (
+                      <Card className="p-4">
+                        <div className="text-center space-y-2">
+                          <p className="text-foreground">Your request status:</p>
+                          <Badge
+                            variant={
+                              userRequest.status === "accepted"
+                                ? "default"
+                                : userRequest.status === "rejected"
+                                ? "destructive"
+                                : "secondary"
+                            }
+                          >
+                            {userRequest.status}
+                          </Badge>
+                        </div>
+                      </Card>
+                    ) : (
+                      <Button onClick={handleJoinRequest} className="w-full">
+                        Request to Join
+                      </Button>
+                    )}
+                  </>
                 )}
               </>
             )}
