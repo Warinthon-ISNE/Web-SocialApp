@@ -7,6 +7,7 @@ import Home from "./pages/Home";
 import CreateActivity from "./pages/CreateActivity";
 import Profile from "./pages/Profile";
 import ActivityDetail from "./pages/ActivityDetail";
+import Chat from "./pages/Chat";
 import Auth from "./pages/Auth";
 import NotFound from "./pages/NotFound";
 
@@ -24,6 +25,7 @@ const App = () => (
           <Route path="/create" element={<CreateActivity />} />
           <Route path="/profile" element={<Profile />} />
           <Route path="/activity/:id" element={<ActivityDetail />} />
+          <Route path="/chat/:activityId" element={<Chat />} />
           <Route path="/404" element={<NotFound />} />
           <Route path="*" element={<Navigate to="/404" replace />} />
         </Routes>

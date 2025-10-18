@@ -2,19 +2,22 @@ import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { auth, db } from "@/lib/firebase";
 import { signOut } from "firebase/auth";
-import { collection, query, where, getDocs, doc, getDoc } from "firebase/firestore";
+import { collection, query, where, getDocs, doc, getDoc, updateDoc, setDoc } from "firebase/firestore";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { ActivityCard } from "@/components/ActivityCard";
 import { BottomNav } from "@/components/BottomNav";
 import { useToast } from "@/hooks/use-toast";
 import { AuthGuard } from "@/components/AuthGuard";
+import { Camera, Edit3 } from "lucide-react";
 
 export default function Profile() {
   const [profile, setProfile] = useState(null);
   const [activities, setActivities] = useState([]);
   const [stats, setStats] = useState({ hosted: 0, waiting: 0, accepted: 0 });
   const [loading, setLoading] = useState(true);
+  const [uploading, setUploading] = useState(false);
   const navigate = useNavigate();
   const { toast } = useToast();
 
@@ -100,6 +103,68 @@ export default function Profile() {
     }
   };
 
+  const handleImageUpload = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // Validate file type
+    if (!file.type.startsWith('image/')) {
+      toast({
+        variant: "destructive",
+        title: "Invalid file type",
+        description: "Please select an image file.",
+      });
+      return;
+    }
+
+    // Validate file size (max 5MB)
+    if (file.size > 5 * 1024 * 1024) {
+      toast({
+        variant: "destructive",
+        title: "File too large",
+        description: "Please select an image smaller than 5MB.",
+      });
+      return;
+    }
+
+    setUploading(true);
+    try {
+      // Convert to base64 for storage
+      const reader = new FileReader();
+      reader.onloadend = async () => {
+        const base64String = reader.result;
+        
+        const user = auth.currentUser;
+        if (!user) return;
+
+        // Update profile in Firestore
+        const profileRef = doc(db, "profiles", user.uid);
+        await setDoc(profileRef, {
+          ...profile,
+          profileImage: base64String,
+        }, { merge: true });
+
+        // Update local state
+        setProfile(prev => ({ ...prev, profileImage: base64String }));
+
+        toast({
+          title: "Profile picture updated!",
+          description: "Your profile picture has been updated successfully.",
+        });
+      };
+      reader.readAsDataURL(file);
+    } catch (error) {
+      console.error("Error uploading image:", error);
+      toast({
+        variant: "destructive",
+        title: "Upload failed",
+        description: "Failed to update profile picture.",
+      });
+    } finally {
+      setUploading(false);
+    }
+  };
+
   const handleLogout = async () => {
     await signOut(auth);
     toast({
@@ -107,6 +172,16 @@ export default function Profile() {
       description: "You've been successfully logged out.",
     });
     navigate("/auth");
+  };
+
+  const getInitials = (name) => {
+    if (!name) return "U";
+    return name
+      .split(" ")
+      .map((n) => n[0])
+      .join("")
+      .toUpperCase()
+      .slice(0, 2);
   };
 
   return (
@@ -120,14 +195,44 @@ export default function Profile() {
             </Button>
           </div>
 
-          {profile && (
-            <Card className="p-6">
-              <div className="space-y-4">
-                <div className="text-center">
-                  <h2 className="text-xl font-semibold text-foreground">
-                    {profile.username}
-                  </h2>
-                </div>
+              {profile && (
+                <Card className="p-6">
+                  <div className="space-y-4">
+                    <div className="text-center">
+                      {/* Profile Picture */}
+                      <div className="relative inline-block mb-4">
+                        <Avatar className="h-24 w-24 mx-auto">
+                          <AvatarImage src={profile.profileImage} alt={profile.name || profile.username} />
+                          <AvatarFallback className="text-lg">
+                            {getInitials(profile.name || profile.username)}
+                          </AvatarFallback>
+                        </Avatar>
+                        
+                        {/* Upload Button */}
+                        <label
+                          htmlFor="profile-upload"
+                          className="absolute bottom-0 right-0 bg-blue-500 hover:bg-blue-600 text-white rounded-full p-2 cursor-pointer transition-colors shadow-lg"
+                          title="Change profile picture"
+                        >
+                          <Camera className="h-4 w-4" />
+                        </label>
+                        <input
+                          type="file"
+                          id="profile-upload"
+                          accept="image/*"
+                          onChange={handleImageUpload}
+                          className="hidden"
+                          disabled={uploading}
+                        />
+                      </div>
+
+                      <h2 className="text-xl font-semibold text-foreground">
+                        {profile.name || profile.username}
+                      </h2>
+                      <p className="text-sm text-muted-foreground">
+                        @{profile.username}
+                      </p>
+                    </div>
 
                 <div className="grid grid-cols-3 gap-4 text-center">
                   <div>

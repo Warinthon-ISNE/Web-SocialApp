@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { auth, db } from "@/lib/firebase";
-import { collection, addDoc } from "firebase/firestore";
+import { collection, addDoc, doc, setDoc } from "firebase/firestore";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -35,7 +35,8 @@ export default function CreateActivity() {
       const user = auth.currentUser;
       if (!user) throw new Error("Not authenticated");
 
-      await addDoc(collection(db, "activities"), {
+      // Create the activity
+      const activityRef = await addDoc(collection(db, "activities"), {
         hostId: user.uid,
         title: title.trim(),
         description: description.trim() || null,
@@ -43,6 +44,14 @@ export default function CreateActivity() {
         maxParticipants: 10,
         createdAt: new Date().toISOString(),
         endedAt: null,
+      });
+
+      // Create the associated chat with the activity ID
+      await setDoc(doc(db, "chats", activityRef.id), {
+        activityId: activityRef.id,
+        hostId: user.uid,
+        participants: [user.uid], // Initially only the host
+        createdAt: new Date().toISOString(),
       });
 
       toast({

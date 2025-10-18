@@ -43,6 +43,8 @@ export default function ActivityDetail() {
   const [userRequest, setUserRequest] = useState(null);
   const [isHost, setIsHost] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [canAccessChat, setCanAccessChat] = useState(false);
+  const [participantCount, setParticipantCount] = useState(0);
   
   // Edit mode states
   const [isEditing, setIsEditing] = useState(false);
@@ -68,14 +70,22 @@ export default function ActivityDetail() {
 
       const activityData = { id: activityDoc.id, ...activityDoc.data() };
       setActivity(activityData);
-      setIsHost(activityData.hostId === user.uid);
+      const userIsHost = activityData.hostId === user.uid;
+      setIsHost(userIsHost);
       
       // Set edit form values
       setEditTitle(activityData.title || "");
       setEditDescription(activityData.description || "");
       setEditImageUrl(activityData.imageUrl || "");
 
-      if (activityData.hostId === user.uid) {
+      // Check chat access
+      if (userIsHost) {
+        setCanAccessChat(true);
+        // Fetch participant count for chat
+        fetchParticipantCount();
+      }
+
+      if (userIsHost) {
         // Fetch requests for this activity
         const requestsQuery = query(
           collection(db, "activityRequests"),
@@ -109,7 +119,15 @@ export default function ActivityDetail() {
         
         if (!userRequestSnapshot.empty) {
           const requestDoc = userRequestSnapshot.docs[0];
-          setUserRequest({ id: requestDoc.id, ...requestDoc.data() });
+          const requestData = { id: requestDoc.id, ...requestDoc.data() };
+          setUserRequest(requestData);
+          
+          // User can access chat if their request was accepted
+          if (requestData.status === "accepted") {
+            setCanAccessChat(true);
+            // Fetch participant count for chat
+            fetchParticipantCount();
+          }
         }
       }
     } catch (error) {
@@ -153,9 +171,28 @@ export default function ActivityDetail() {
 
   const handleRequestAction = async (requestId, action) => {
     try {
+      // Update the request status
       await updateDoc(doc(db, "activityRequests", requestId), {
         status: action,
       });
+
+      // If accepted, add user to chat participants
+      if (action === "accepted") {
+        const request = requests.find(r => r.id === requestId);
+        if (request) {
+          const chatRef = doc(db, "chats", id);
+          const chatDoc = await getDoc(chatRef);
+          
+          if (chatDoc.exists()) {
+            const currentParticipants = chatDoc.data().participants || [];
+            if (!currentParticipants.includes(request.userId)) {
+              await updateDoc(chatRef, {
+                participants: [...currentParticipants, request.userId],
+              });
+            }
+          }
+        }
+      }
 
       toast({
         title: action === "accepted" ? "Request accepted" : "Request declined",
@@ -168,6 +205,18 @@ export default function ActivityDetail() {
         title: "Error",
         description: "Failed to update request.",
       });
+    }
+  };
+
+  const fetchParticipantCount = async () => {
+    try {
+      const chatDoc = await getDoc(doc(db, "chats", id));
+      if (chatDoc.exists()) {
+        const chatData = chatDoc.data();
+        setParticipantCount(chatData.participants?.length || 0);
+      }
+    } catch (error) {
+      console.error("Error fetching participant count:", error);
     }
   };
 
@@ -234,12 +283,23 @@ export default function ActivityDetail() {
         where("activityId", "==", id)
       );
       const requestsSnapshot = await getDocs(requestsQuery);
-      
+
       // Delete all requests
-      const deletePromises = requestsSnapshot.docs.map(doc => 
+      const deletePromises = requestsSnapshot.docs.map(doc =>
         deleteDoc(doc.ref)
       );
       await Promise.all(deletePromises);
+
+      // Delete all chat messages
+      const messagesQuery = query(collection(db, "chats", id, "messages"));
+      const messagesSnapshot = await getDocs(messagesQuery);
+      const messageDeletePromises = messagesSnapshot.docs.map(doc =>
+        deleteDoc(doc.ref)
+      );
+      await Promise.all(messageDeletePromises);
+
+      // Delete the chat document
+      await deleteDoc(doc(db, "chats", id));
 
       // Delete the activity itself
       await deleteDoc(doc(db, "activities", id));
@@ -511,6 +571,36 @@ export default function ActivityDetail() {
                     )}
                   </>
                 )}
+              </>
+            )}
+
+            {/* Group Chat Box - Only for host and accepted participants */}
+            {canAccessChat && !isEditing && (
+              <>
+                <Separator />
+                <Card 
+                  className="p-4 cursor-pointer hover:bg-gray-50 transition-colors"
+                  onClick={() => navigate(`/chat/${id}`)}
+                >
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center">
+                        <Users className="h-5 w-5 text-blue-600" />
+                      </div>
+                      <div>
+                        <h3 className="font-medium text-gray-900">Group Chat</h3>
+                        <p className="text-sm text-gray-600">
+                          {participantCount} member{participantCount !== 1 ? "s" : ""}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="text-gray-400">
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                      </svg>
+                    </div>
+                  </div>
+                </Card>
               </>
             )}
           </div>
