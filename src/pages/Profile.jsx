@@ -1,6 +1,8 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { supabase } from "@/integrations/supabase/client";
+import { auth, db } from "@/lib/firebase";
+import { signOut } from "firebase/auth";
+import { collection, query, where, getDocs, doc, getDoc } from "firebase/firestore";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { ActivityCard } from "@/components/ActivityCard";
@@ -23,17 +25,20 @@ export default function Profile() {
 
   const fetchProfile = async () => {
     try {
-      const { data: { user } } = await supabase.auth.getUser();
+      const user = auth.currentUser;
       if (!user) return;
 
-      const { data, error } = await supabase
-        .from("profiles")
-        .select("*")
-        .eq("id", user.id)
-        .single();
-
-      if (error) throw error;
-      setProfile(data);
+      const profileDoc = await getDoc(doc(db, "profiles", user.uid));
+      
+      if (profileDoc.exists()) {
+        setProfile({ id: profileDoc.id, ...profileDoc.data() });
+      } else {
+        // Fallback to auth display name
+        setProfile({ 
+          id: user.uid, 
+          username: user.displayName || user.email?.split('@')[0] || 'User' 
+        });
+      }
     } catch (error) {
       console.error("Error fetching profile:", error);
     }
@@ -41,23 +46,45 @@ export default function Profile() {
 
   const fetchActivities = async () => {
     try {
-      const { data: { user } } = await supabase.auth.getUser();
+      const user = auth.currentUser;
       if (!user) return;
 
-      const { data: hostedData } = await supabase
-        .from("activities")
-        .select("*")
-        .eq("host_id", user.id)
-        .is("ended_at", null);
+      // Fetch hosted activities
+      const hostedQuery = query(
+        collection(db, "activities"),
+        where("hostId", "==", user.uid),
+        where("endedAt", "==", null)
+      );
+      const hostedSnapshot = await getDocs(hostedQuery);
+      const hosted = hostedSnapshot.docs.map(doc => ({ 
+        id: doc.id, 
+        ...doc.data(), 
+        badge: "hosted" 
+      }));
 
-      const { data: requestsData } = await supabase
-        .from("activity_requests")
-        .select("*, activities(*)")
-        .eq("user_id", user.id);
-
-      const hosted = hostedData || [];
-      const waiting = requestsData?.filter(r => r.status === "pending") || [];
-      const accepted = requestsData?.filter(r => r.status === "accepted") || [];
+      // Fetch activity requests
+      const requestsQuery = query(
+        collection(db, "activityRequests"),
+        where("userId", "==", user.uid)
+      );
+      const requestsSnapshot = await getDocs(requestsQuery);
+      
+      const waiting = [];
+      const accepted = [];
+      
+      for (const requestDoc of requestsSnapshot.docs) {
+        const requestData = requestDoc.data();
+        const activityDoc = await getDoc(doc(db, "activities", requestData.activityId));
+        
+        if (activityDoc.exists()) {
+          const activityData = { id: activityDoc.id, ...activityDoc.data() };
+          if (requestData.status === "pending") {
+            waiting.push({ ...activityData, badge: "waiting" });
+          } else if (requestData.status === "accepted") {
+            accepted.push({ ...activityData, badge: "accepted" });
+          }
+        }
+      }
 
       setStats({
         hosted: hosted.length,
@@ -65,13 +92,7 @@ export default function Profile() {
         accepted: accepted.length,
       });
 
-      const allActivities = [
-        ...hosted.map(a => ({ ...a, badge: "hosted" })),
-        ...waiting.map(r => ({ ...r.activities, badge: "waiting" })),
-        ...accepted.map(r => ({ ...r.activities, badge: "accepted" })),
-      ];
-
-      setActivities(allActivities);
+      setActivities([...hosted, ...waiting, ...accepted]);
     } catch (error) {
       console.error("Error fetching activities:", error);
     } finally {
@@ -80,7 +101,7 @@ export default function Profile() {
   };
 
   const handleLogout = async () => {
-    await supabase.auth.signOut();
+    await signOut(auth);
     toast({
       title: "Logged out",
       description: "You've been successfully logged out.",
@@ -143,9 +164,9 @@ export default function Profile() {
                     key={activity.id}
                     id={activity.id}
                     title={activity.title}
-                    imageUrl={activity.image_url || undefined}
+                    imageUrl={activity.imageUrl || undefined}
                     participantCount={0}
-                    maxParticipants={activity.max_participants}
+                    maxParticipants={activity.maxParticipants}
                     badge={activity.badge}
                   />
                 ))}

@@ -1,6 +1,12 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { supabase } from "@/integrations/supabase/client";
+import { auth, db } from "@/lib/firebase";
+import { 
+  createUserWithEmailAndPassword, 
+  signInWithEmailAndPassword,
+  updateProfile 
+} from "firebase/auth";
+import { doc, setDoc } from "firebase/firestore";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -34,22 +40,21 @@ export default function Auth() {
       authSchema.parse(data);
 
       if (isLogin) {
-        const { error } = await supabase.auth.signInWithPassword({
-          email,
-          password,
-        });
-        if (error) throw error;
+        await signInWithEmailAndPassword(auth, email, password);
       } else {
-        const { error } = await supabase.auth.signUp({
-          email,
-          password,
-          options: {
-            data: {
-              username,
-            },
-          },
+        const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+        
+        // Update user profile with username
+        await updateProfile(userCredential.user, {
+          displayName: username,
         });
-        if (error) throw error;
+
+        // Create user profile in Firestore
+        await setDoc(doc(db, "profiles", userCredential.user.uid), {
+          username: username,
+          email: email,
+          createdAt: new Date().toISOString(),
+        });
       }
 
       toast({

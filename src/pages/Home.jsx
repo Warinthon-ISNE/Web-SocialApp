@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
-import { supabase } from "@/integrations/supabase/client";
+import { db } from "@/lib/firebase";
+import { collection, query, where, orderBy, getDocs } from "firebase/firestore";
 import { ActivityCard } from "@/components/ActivityCard";
 import { BottomNav } from "@/components/BottomNav";
 import { Input } from "@/components/ui/input";
@@ -17,14 +18,20 @@ export default function Home() {
 
   const fetchActivities = async () => {
     try {
-      const { data, error } = await supabase
-        .from("activities")
-        .select("*")
-        .is("ended_at", null)
-        .order("created_at", { ascending: false });
-
-      if (error) throw error;
-      setActivities(data || []);
+      const activitiesRef = collection(db, "activities");
+      const q = query(
+        activitiesRef,
+        where("endedAt", "==", null),
+        orderBy("createdAt", "desc")
+      );
+      
+      const querySnapshot = await getDocs(q);
+      const activitiesData = querySnapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      }));
+      
+      setActivities(activitiesData);
     } catch (error) {
       console.error("Error fetching activities:", error);
     } finally {
@@ -68,9 +75,9 @@ export default function Home() {
                   key={activity.id}
                   id={activity.id}
                   title={activity.title}
-                  imageUrl={activity.image_url || undefined}
+                  imageUrl={activity.imageUrl || undefined}
                   participantCount={0}
-                  maxParticipants={activity.max_participants}
+                  maxParticipants={activity.maxParticipants}
                 />
               ))}
             </div>

@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { supabase } from "@/integrations/supabase/client";
+import { auth, db } from "@/lib/firebase";
+import { collection, addDoc } from "firebase/firestore";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -31,17 +32,18 @@ export default function CreateActivity() {
     try {
       activitySchema.parse({ title, description });
 
-      const { data: { user } } = await supabase.auth.getUser();
+      const user = auth.currentUser;
       if (!user) throw new Error("Not authenticated");
 
-      const { error } = await supabase.from("activities").insert({
-        host_id: user.id,
+      await addDoc(collection(db, "activities"), {
+        hostId: user.uid,
         title: title.trim(),
         description: description.trim() || null,
-        image_url: imageUrl.trim() || null,
+        imageUrl: imageUrl.trim() || null,
+        maxParticipants: 10,
+        createdAt: new Date().toISOString(),
+        endedAt: null,
       });
-
-      if (error) throw error;
 
       toast({
         title: "Activity created!",

@@ -1,6 +1,16 @@
 import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { supabase } from "@/integrations/supabase/client";
+import { auth, db } from "@/lib/firebase";
+import { 
+  doc, 
+  getDoc, 
+  collection, 
+  query, 
+  where, 
+  getDocs, 
+  addDoc, 
+  updateDoc 
+} from "firebase/firestore";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -36,36 +46,55 @@ export default function ActivityDetail() {
 
   const fetchActivity = async () => {
     try {
-      const { data: { user } } = await supabase.auth.getUser();
+      const user = auth.currentUser;
       if (!user) return;
 
-      const { data: activityData, error: activityError } = await supabase
-        .from("activities")
-        .select("*")
-        .eq("id", id)
-        .single();
+      const activityDoc = await getDoc(doc(db, "activities", id));
 
-      if (activityError) throw activityError;
+      if (!activityDoc.exists()) {
+        throw new Error("Activity not found");
+      }
+
+      const activityData = { id: activityDoc.id, ...activityDoc.data() };
       setActivity(activityData);
-      setIsHost(activityData.host_id === user.id);
+      setIsHost(activityData.hostId === user.uid);
 
-      if (activityData.host_id === user.id) {
-        const { data: requestsData } = await supabase
-          .from("activity_requests")
-          .select("*, profiles(*)")
-          .eq("activity_id", id)
-          .order("created_at", { ascending: false });
+      if (activityData.hostId === user.uid) {
+        // Fetch requests for this activity
+        const requestsQuery = query(
+          collection(db, "activityRequests"),
+          where("activityId", "==", id)
+        );
+        const requestsSnapshot = await getDocs(requestsQuery);
+        
+        const requestsData = [];
+        for (const requestDoc of requestsSnapshot.docs) {
+          const requestData = { id: requestDoc.id, ...requestDoc.data() };
+          
+          // Fetch profile for each request
+          const profileDoc = await getDoc(doc(db, "profiles", requestData.userId));
+          if (profileDoc.exists()) {
+            requestData.profiles = { id: profileDoc.id, ...profileDoc.data() };
+          }
+          requestsData.push(requestData);
+        }
 
-        setRequests(requestsData || []);
+        // Sort by created date (newest first)
+        requestsData.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+        setRequests(requestsData);
       } else {
-        const { data: userRequestData } = await supabase
-          .from("activity_requests")
-          .select("*")
-          .eq("activity_id", id)
-          .eq("user_id", user.id)
-          .maybeSingle();
-
-        setUserRequest(userRequestData);
+        // Fetch user's request for this activity
+        const userRequestQuery = query(
+          collection(db, "activityRequests"),
+          where("activityId", "==", id),
+          where("userId", "==", user.uid)
+        );
+        const userRequestSnapshot = await getDocs(userRequestQuery);
+        
+        if (!userRequestSnapshot.empty) {
+          const requestDoc = userRequestSnapshot.docs[0];
+          setUserRequest({ id: requestDoc.id, ...requestDoc.data() });
+        }
       }
     } catch (error) {
       console.error("Error fetching activity:", error);
@@ -81,15 +110,15 @@ export default function ActivityDetail() {
 
   const handleJoinRequest = async () => {
     try {
-      const { data: { user } } = await supabase.auth.getUser();
+      const user = auth.currentUser;
       if (!user) return;
 
-      const { error } = await supabase.from("activity_requests").insert({
-        activity_id: id,
-        user_id: user.id,
+      await addDoc(collection(db, "activityRequests"), {
+        activityId: id,
+        userId: user.uid,
+        status: "pending",
+        createdAt: new Date().toISOString(),
       });
-
-      if (error) throw error;
 
       toast({
         title: "Request sent!",
@@ -108,12 +137,9 @@ export default function ActivityDetail() {
 
   const handleRequestAction = async (requestId, action) => {
     try {
-      const { error } = await supabase
-        .from("activity_requests")
-        .update({ status: action })
-        .eq("id", requestId);
-
-      if (error) throw error;
+      await updateDoc(doc(db, "activityRequests", requestId), {
+        status: action,
+      });
 
       toast({
         title: action === "accepted" ? "Request accepted" : "Request declined",
@@ -131,12 +157,9 @@ export default function ActivityDetail() {
 
   const handleEndActivity = async () => {
     try {
-      const { error } = await supabase
-        .from("activities")
-        .update({ ended_at: new Date().toISOString() })
-        .eq("id", id);
-
-      if (error) throw error;
+      await updateDoc(doc(db, "activities", id), {
+        endedAt: new Date().toISOString(),
+      });
 
       toast({
         title: "Activity ended",
@@ -188,10 +211,10 @@ export default function ActivityDetail() {
           </div>
 
           <div className="p-4 space-y-4">
-            {activity.image_url && (
+            {activity.imageUrl && (
               <div className="aspect-video bg-muted rounded-lg overflow-hidden">
                 <img
-                  src={activity.image_url}
+                  src={activity.imageUrl}
                   alt={activity.title}
                   className="w-full h-full object-cover"
                 />
@@ -203,7 +226,7 @@ export default function ActivityDetail() {
               <div className="flex items-center gap-2 text-muted-foreground">
                 <Users className="h-4 w-4" />
                 <span>
-                  Max {activity.max_participants} participants
+                  Max {activity.maxParticipants} participants
                 </span>
               </div>
             </div>
