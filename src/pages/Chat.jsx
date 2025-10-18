@@ -202,29 +202,53 @@ export default function Chat() {
 
   return (
     <AuthGuard>
-      <div className="min-h-screen bg-gray-50">
+      <div style={{ minHeight: '100vh', backgroundColor: 'hsl(213, 35%, 15%)' }}>
         {/* Header */}
-        <div className="sticky top-0 z-10 bg-white border-b shadow-sm">
-          <div className="max-w-4xl mx-auto px-4 py-3">
-            <div className="flex items-center gap-4">
+        <div style={{ 
+          position: 'sticky', 
+          top: 0, 
+          zIndex: 10, 
+          backgroundColor: 'hsl(217, 33%, 18%)', 
+          borderBottom: '1px solid hsl(215, 20%, 30%)',
+          boxShadow: '0 1px 3px 0 rgba(0, 0, 0, 0.1)'
+        }}>
+          <div style={{ maxWidth: '56rem', margin: '0 auto', padding: '0.75rem 1rem' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
               <button
                 onClick={() => navigate(-1)}
-                className="flex items-center gap-2 text-gray-600 hover:text-gray-800 transition-colors"
+                style={{ 
+                  display: 'flex', 
+                  alignItems: 'center', 
+                  gap: '0.5rem', 
+                  color: 'hsl(210, 15%, 70%)',
+                  background: 'none',
+                  border: 'none',
+                  cursor: 'pointer'
+                }}
               >
-                <ArrowLeft className="h-5 w-5" />
+                <ArrowLeft style={{ height: '1.25rem', width: '1.25rem' }} />
                 <span>Back</span>
               </button>
               
-              <div className="flex items-center gap-3 flex-1">
-                <Users className="h-5 w-5 text-gray-600" />
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flex: 1 }}>
+                <Users style={{ height: '1.25rem', width: '1.25rem', color: 'hsl(210, 15%, 70%)' }} />
                 <div>
-                  <h1 className="font-semibold text-gray-900">{activityTitle}</h1>
+                  <h1 style={{ fontWeight: '600', color: 'hsl(180, 20%, 96%)' }}>{activityTitle}</h1>
                   <button
                     onClick={() => setShowParticipants(true)}
-                    className="flex items-center gap-1 text-sm text-gray-600 hover:text-gray-800 transition-colors"
+                    style={{ 
+                      display: 'flex', 
+                      alignItems: 'center', 
+                      gap: '0.25rem', 
+                      fontSize: '0.875rem', 
+                      color: 'hsl(210, 15%, 70%)',
+                      background: 'none',
+                      border: 'none',
+                      cursor: 'pointer'
+                    }}
                   >
                     {participantCount} member{participantCount !== 1 ? "s" : ""}
-                    <ChevronDown className="h-3 w-3" />
+                    <ChevronDown style={{ height: '0.75rem', width: '0.75rem' }} />
                   </button>
                 </div>
               </div>
@@ -233,60 +257,112 @@ export default function Chat() {
         </div>
 
         {/* Messages Container */}
-        <div className="max-w-4xl mx-auto px-4 py-6">
-          <div className="space-y-4 min-h-[calc(100vh-200px)]">
+        <div style={{ maxWidth: '56rem', margin: '0 auto', padding: '1.5rem 1rem' }}>
+          <div style={{ minHeight: 'calc(100vh - 200px)' }}>
             {messages.length === 0 ? (
-              <div className="flex items-center justify-center h-96 text-gray-500 text-center">
+              <div style={{ 
+                display: 'flex', 
+                alignItems: 'center', 
+                justifyContent: 'center', 
+                height: '24rem', 
+                color: 'hsl(210, 15%, 70%)', 
+                textAlign: 'center' 
+              }}>
                 <div>
-                  <Users className="h-12 w-12 mx-auto mb-4 text-gray-300" />
-                  <p className="text-lg font-medium">No messages yet</p>
-                  <p className="text-sm">Start the conversation!</p>
+                  <Users style={{ height: '3rem', width: '3rem', margin: '0 auto 1rem', color: 'hsl(215, 25%, 25%)' }} />
+                  <p style={{ fontSize: '1.125rem', fontWeight: '500' }}>No messages yet</p>
+                  <p style={{ fontSize: '0.875rem' }}>Start the conversation!</p>
                 </div>
               </div>
             ) : (
-              messages.map((msg) => {
+              messages.map((msg, index) => {
                 const isCurrentUser = msg.userId === auth.currentUser?.uid;
                 return (
                   <div
                     key={msg.id}
-                    className={`flex ${isCurrentUser ? "justify-end" : "justify-start"} gap-3`}
+                    style={{ 
+                      display: 'flex', 
+                      alignItems: 'flex-end', 
+                      gap: '0.75rem', 
+                      marginBottom: '1.5rem',
+                      justifyContent: isCurrentUser ? 'flex-end' : 'flex-start'
+                    }}
                   >
+                    {/* Other users' messages - Left side */}
                     {!isCurrentUser && (
-                      <Avatar className="h-8 w-8 mt-1">
-                        <AvatarImage src={msg.profileImage} alt={msg.username} />
-                        <AvatarFallback className="text-xs">
-                          {getInitials(msg.username)}
-                        </AvatarFallback>
-                      </Avatar>
+                      <>
+                        <Avatar style={{ height: '2rem', width: '2rem', flexShrink: 0 }}>
+                          <AvatarImage src={msg.profileImage} alt={msg.username} />
+                          <AvatarFallback style={{ fontSize: '0.75rem' }}>
+                            {getInitials(msg.username)}
+                          </AvatarFallback>
+                        </Avatar>
+                        <div style={{ display: 'flex', flexDirection: 'column', maxWidth: '70%' }}>
+                          <p style={{ fontSize: '0.75rem', fontWeight: '500', color: 'hsl(210, 15%, 70%)', marginBottom: '0.25rem' }}>
+                            {msg.username}
+                          </p>
+                          <div style={{ 
+                            backgroundColor: 'hsl(217, 33%, 18%)', 
+                            color: 'hsl(180, 20%, 96%)', 
+                            border: '1px solid hsl(215, 20%, 30%)', 
+                            borderRadius: '1rem', 
+                            padding: '0.5rem 1rem', 
+                            boxShadow: '0 1px 3px 0 rgba(0, 0, 0, 0.1)',
+                            position: 'relative'
+                          }}>
+                            <div style={{ 
+                              position: 'absolute', 
+                              left: '-0.25rem', 
+                              bottom: '0', 
+                              width: '0.75rem', 
+                              height: '0.75rem', 
+                              backgroundColor: 'hsl(217, 33%, 18%)', 
+                              borderLeft: '1px solid hsl(215, 20%, 30%)', 
+                              borderBottom: '1px solid hsl(215, 20%, 30%)', 
+                              transform: 'rotate(45deg)' 
+                            }}></div>
+                            <p style={{ fontSize: '0.875rem', wordBreak: 'break-word', margin: 0 }}>{msg.message}</p>
+                          </div>
+                          <p style={{ fontSize: '0.75rem', color: 'hsl(210, 15%, 70%)', marginTop: '0.25rem' }}>
+                            {formatTime(msg.createdAt)}
+                          </p>
+                        </div>
+                      </>
                     )}
-                    
-                    <div className={`max-w-[70%] ${isCurrentUser ? "order-first" : ""}`}>
-                      {!isCurrentUser && (
-                        <p className="text-xs font-medium text-gray-700 mb-1 px-1">
-                          {msg.username}
-                        </p>
-                      )}
-                      <div
-                        className={`rounded-2xl px-4 py-2 ${
-                          isCurrentUser
-                            ? "bg-blue-500 text-white"
-                            : "bg-white text-gray-900 border border-gray-200 shadow-sm"
-                        }`}
-                      >
-                        <p className="text-sm break-words">{msg.message}</p>
-                      </div>
-                      <p className={`text-xs text-gray-500 mt-1 px-1 ${isCurrentUser ? "text-right" : "text-left"}`}>
-                        {formatTime(msg.createdAt)}
-                      </p>
-                    </div>
 
+                    {/* Current user's messages - Right side */}
                     {isCurrentUser && (
-                      <Avatar className="h-8 w-8 mt-1">
-                        <AvatarImage src={profileImage} alt={username} />
-                        <AvatarFallback className="text-xs">
-                          {getInitials(username)}
-                        </AvatarFallback>
-                      </Avatar>
+                      <>
+                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', maxWidth: '70%' }}>
+                          <div style={{ 
+                            backgroundColor: '#22c55e', 
+                            color: 'white', 
+                            borderRadius: '1rem', 
+                            padding: '0.5rem 1rem',
+                            position: 'relative'
+                          }}>
+                            <div style={{ 
+                              position: 'absolute', 
+                              right: '-0.25rem', 
+                              bottom: '0', 
+                              width: '0.75rem', 
+                              height: '0.75rem', 
+                              backgroundColor: '#22c55e', 
+                              transform: 'rotate(45deg)' 
+                            }}></div>
+                            <p style={{ fontSize: '0.875rem', wordBreak: 'break-word', margin: 0 }}>{msg.message}</p>
+                          </div>
+                          <p style={{ fontSize: '0.75rem', color: 'hsl(210, 15%, 70%)', marginTop: '0.25rem' }}>
+                            {formatTime(msg.createdAt)}
+                          </p>
+                        </div>
+                        <Avatar style={{ height: '2rem', width: '2rem', flexShrink: 0 }}>
+                          <AvatarImage src={profileImage} alt={username} />
+                          <AvatarFallback style={{ fontSize: '0.75rem' }}>
+                            {getInitials(username)}
+                          </AvatarFallback>
+                        </Avatar>
+                      </>
                     )}
                   </div>
                 );
@@ -297,25 +373,50 @@ export default function Chat() {
         </div>
 
         {/* Message Input - Fixed at bottom */}
-        <div className="sticky bottom-0 bg-white border-t shadow-lg">
-          <div className="max-w-4xl mx-auto px-4 py-4">
-            <form onSubmit={handleSendMessage} className="flex gap-3">
-              <Input
+        <div style={{ 
+          position: 'sticky', 
+          bottom: 0, 
+          backgroundColor: 'hsl(217, 33%, 18%)', 
+          borderTop: '1px solid hsl(215, 20%, 30%)', 
+          boxShadow: '0 -4px 6px -1px rgba(0, 0, 0, 0.1)' 
+        }}>
+          <div style={{ maxWidth: '56rem', margin: '0 auto', padding: '1rem' }}>
+            <form onSubmit={handleSendMessage} style={{ display: 'flex', gap: '0.75rem' }}>
+              <input
                 type="text"
                 placeholder="Type a new message"
                 value={newMessage}
                 onChange={(e) => setNewMessage(e.target.value)}
                 disabled={loading}
                 maxLength={500}
-                className="flex-1 border-gray-300 focus:border-blue-500 focus:ring-blue-500 rounded-full"
+                style={{ 
+                  flex: 1, 
+                  border: '1px solid hsl(215, 20%, 30%)', 
+                  borderRadius: '9999px', 
+                  padding: '0.75rem 1rem',
+                  fontSize: '0.875rem',
+                  outline: 'none',
+                  backgroundColor: 'hsl(215, 25%, 25%)',
+                  color: 'hsl(180, 20%, 96%)'
+                }}
               />
-              <Button 
+              <button 
                 type="submit" 
                 disabled={loading || !newMessage.trim()}
-                className="bg-blue-500 hover:bg-blue-600 text-white px-6 rounded-full"
+                style={{ 
+                  backgroundColor: '#22c55e', 
+                  color: 'white', 
+                  padding: '0.75rem 1.5rem', 
+                  borderRadius: '9999px',
+                  border: 'none',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center'
+                }}
               >
-                <Send className="h-4 w-4" />
-              </Button>
+                <Send style={{ height: '1rem', width: '1rem' }} />
+              </button>
             </form>
           </div>
         </div>
