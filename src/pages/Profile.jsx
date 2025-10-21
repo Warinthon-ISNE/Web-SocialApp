@@ -194,19 +194,24 @@ export default function Profile() {
               Logout
             </Button>
           </div>
-
+          <h1><br /></h1>
               {profile && (
-                <Card className="p-6">
-                  <div className="space-y-4">
+                <Card className="p-6 ">
+                  <div className="flex space-x-4 items-center">
+                  {/* <div className="space-y-4 flex"> */}
                     <div className="text-center">
                       {/* Profile Picture */}
                       <div className="relative inline-block mb-4">
-                        <Avatar className="h-24 w-24 mx-auto">
-                          <AvatarImage src={profile.profileImage} alt={profile.name || profile.username} />
-                          <AvatarFallback className="text-lg">
-                            {getInitials(profile.name || profile.username)}
-                          </AvatarFallback>
-                        </Avatar>
+                      <Avatar className="h-12 w-12">
+                        <AvatarImage
+                          src={profile.profileImage}
+                          alt={profile.name || profile.username}
+                          className="h-full w-full object-cover rounded-full"
+                        />
+                        <AvatarFallback className="text-lg">
+                          {getInitials(profile.name || profile.username)}
+                        </AvatarFallback>
+                      </Avatar>
                         
                         {/* Upload Button */}
                         <label
@@ -234,26 +239,28 @@ export default function Profile() {
                       </p>
                     </div>
 
-                <div className="grid grid-cols-3 gap-4 text-center">
-                  <div>
-                    <div className="text-2xl font-bold text-accent">{stats.hosted}</div>
-                    <div className="text-sm text-muted-foreground">Hosted</div>
+                    <div className = "flex space-x-4">
+                    {/* <div className="grid grid-cols-3 gap-4 text-center "> */}
+                      <div>
+                        <div className="text-2xl font-bold text-accent text-center">{stats.hosted}</div>
+                        <div className="text-sm text-muted-foreground">Hosted</div>
+                      </div>
+                      <div>
+                        <div className="text-2xl font-bold text-secondary text-center">{stats.waiting}</div>
+                        <div className="text-sm text-muted-foreground">Waiting</div>
+                      </div>
+                      <div>
+                        <div className="text-2xl font-bold text-primary text-center">{stats.accepted}</div>
+                        <div className="text-sm text-muted-foreground">Accepted</div>
+                      </div>
+                    </div>
                   </div>
-                  <div>
-                    <div className="text-2xl font-bold text-secondary">{stats.waiting}</div>
-                    <div className="text-sm text-muted-foreground">Waiting</div>
-                  </div>
-                  <div>
-                    <div className="text-2xl font-bold text-primary">{stats.accepted}</div>
-                    <div className="text-sm text-muted-foreground">Accepted</div>
-                  </div>
-                </div>
-              </div>
-            </Card>
+                </Card>
           )}
 
           <div className="space-y-4">
-            <h2 className="text-lg font-semibold text-foreground">My Activities</h2>
+            <h2 className="text-lg font-semibold text-foreground"><br /><br />My Activities</h2>
+            <h2><br /></h2>
             {loading ? (
               <div className="text-center py-8 text-muted-foreground">
                 Loading activities...

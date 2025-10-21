@@ -78,6 +78,7 @@ export default function Auth() {
     <div className="min-h-screen flex items-center justify-center bg-background p-4">
       <div className="w-full max-w-md space-y-8">
         <div className="text-center">
+          <img src="logo.png" alt="logo" className = "w-12 h-12 mx-auto"/>
           <h1 className="text-3xl font-bold text-foreground">See You Next Time</h1>
           <p className="mt-2 text-muted-foreground">
             {isLogin ? "Welcome back" : "Create your account"}
